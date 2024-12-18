@@ -1,0 +1,2 @@
+load_dir:/home/sora/Documents/ASD/DIAFHMISEIS
+save_dir:/home/sora/Documents/ASD/Playlist  DIAFHMISEWN

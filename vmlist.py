@@ -25,6 +25,7 @@ def extract_bxx_info(bxx_file_path):
         # Find the VideoStream with the largest Duration
         video_streams = root.findall("VideoStream")
         max_duration = 0
+        video_standards = []  # List to store video standards
         for stream in video_streams:
             try:
                 file_trim_in = int(stream.find("VideoStreamElement/FileTrimIn").text)
@@ -35,7 +36,15 @@ def extract_bxx_info(bxx_file_path):
             if duration > max_duration:
                 max_duration = duration
 
-        return {"duration": max_duration}  # Return only the max duration
+            # Extract VideoStandard
+            video_standard_element = stream.find("VideoStandard")
+            if video_standard_element is not None:
+                video_standards.append(video_standard_element.text)
+
+        return {
+            "duration": max_duration,
+            "video_standards": video_standards,
+        }
     except Exception as e:
         messagebox.showerror("Error", f"Failed to parse {bxx_file_path}: {e}")
         return None
@@ -110,6 +119,40 @@ def move_item_spacebar(event=None):
             listbox_left.activate(listbox_left.size() - 1)
     except (tk.TclError, IndexError):
         pass
+
+
+# --- Functions that allow to edit the right list order ---
+def move_item_up(event=None):
+    try:
+        selection = listbox_right.curselection()
+        if not selection:
+            return
+        index = selection[0]
+        if index > 0:
+            item = listbox_right.get(index)
+            listbox_right.delete(index)
+            listbox_right.insert(index - 1, item)
+            listbox_right.selection_set(index - 1)
+            update_total_duration_display()
+    except IndexError:
+        pass
+
+def move_item_down(event=None):
+    try:
+        selection = listbox_right.curselection()
+        if not selection:
+            return
+        index = selection[0]
+        if index < listbox_right.size() - 1:
+            item = listbox_right.get(index)
+            listbox_right.delete(index)
+            listbox_right.insert(index + 1, item)
+            listbox_right.selection_set(index + 1)
+            update_total_duration_display()
+    except IndexError:
+        pass
+# /--- Functions that allow to edit the right list order ---/
+
 
 # --- Function to move all items to the left listbox ---
 def move_all_items(source_listbox, target_listbox):
@@ -215,7 +258,10 @@ def save_playlist(event=None):
             # Add clip details
             clip_data = ET.SubElement(title, "ClipData")
             ET.SubElement(clip_data, "Duration").text = str(bxx_info["duration"])
-            ET.SubElement(clip_data, "VideoStandard").text = bxx_info.get("scale", "1080i25")
+            
+            # Add VideoStandard elements
+            for video_standard in bxx_info["video_standards"]:
+                ET.SubElement(clip_data, "VideoStandard").text = video_standard
 
             # Add metadata
             meta_data = ET.SubElement(item, "MetaData")
@@ -234,6 +280,7 @@ def save_playlist(event=None):
         with open(playlist_path, "w", encoding="utf-8") as f:
             f.write(pretty_xml_str)
         messagebox.showinfo("Success", f"Playlist saved as {playlist_path}")
+        load_directory()
     except Exception as e:
         messagebox.showerror("Error", f"Failed to save playlist: {e}")
 
@@ -564,6 +611,9 @@ listbox_right = tk.Listbox(
 )
 listbox_right.pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=10, pady=5)
 
+# Bind Ctrl+Up and Ctrl+Down to move items
+listbox_right.bind("<Control-Up>", move_item_up)
+listbox_right.bind("<Control-Down>", move_item_down)
 
 # Frame for buttons
 button_frame = ttk.Frame(root)
